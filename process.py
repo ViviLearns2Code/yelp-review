@@ -35,7 +35,8 @@ if nlp.vocab["ever"].is_stop == True:
 # 4. Define custom pipelines
 def _filter(doc):
     ''' remove stop words, non-alphabetic tokens, punctuation '''
-    return [token for token in doc if not token.is_space and not token.is_stop and not token.is_punct and token.is_alpha]
+    exc_list  = ["n't","'m","'re"]
+    return [token for token in doc if not token.is_space and not token.is_stop and not token.is_punct and (token.text in exc_list or token.is_alpha)]
 
 def _lemmatize(doc):
     for token in doc:
