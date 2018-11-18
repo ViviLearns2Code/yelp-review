@@ -1,0 +1,7 @@
+dataset/
+.vscode/
+adj_neg/
+adj_neu/
+adj_pos/
+*.png
+*.json
