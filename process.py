@@ -21,22 +21,16 @@ tgtpath = './dataset/final/'
 Token.set_extension("cleaned", default="")
 # 2. Load model
 nlp = spacy.load('en_core_web_md', disable=["parser", "ner"])
-# 3. Configure stop words 
-if nlp.vocab["not"].is_stop == True:
-    nlp.Defaults.stop_words.remove("not")
-if nlp.vocab["no"].is_stop == True:
-    nlp.Defaults.stop_words.remove("no")
-if nlp.vocab["nothing"].is_stop == True:
-    nlp.vocab["nothing"].is_stop == False
-if nlp.vocab["never"].is_stop == True:
-    nlp.vocab["never"].is_stop == False
-if nlp.vocab["ever"].is_stop == True:
-    nlp.vocab["ever"].is_stop == False    
+# 3. Define custom stop words 
+STOP_WORDS = ["be", "the", "and", "i", "a", "to", "it", "of", 
+"have", "for", "in", "my", "that", "we", "they", "with", 
+"you", "this", "do", "us", "them", "me", "their", "his", 
+"him", "her"]
 # 4. Define custom pipelines
 def _filter(doc):
-    ''' remove stop words, non-alphabetic tokens, punctuation '''
+    ''' remove non-alphabetic tokens, punctuation '''
     exc_list  = ["n't","'m","'re"]
-    return [token for token in doc if not token.is_space and not token.is_stop and not token.is_punct and (token.text in exc_list or token.is_alpha)]
+    return [token for token in doc if not token.is_space and not (nlp.vocab[token.lemma_.lower()].is_stop or nlp.vocab[token.lower_].is_stop) and not token.is_punct and (token.text in exc_list or token.is_alpha)]
 
 def _lemmatize(doc):
     for token in doc:
@@ -53,7 +47,8 @@ def _unknown(doc):
     return doc
 
 def _finalize(doc):
-    return [token for token in doc if token._.cleaned != ""]
+    ''' drop unknown tokens and custom stop words '''
+    return [token for token in doc if token._.cleaned != "" and token._.cleaned not in STOP_WORDS and token._.cleaned != "UNK"]
 
 nlp.add_pipe(_filter, name="filter", after="tagger")
 nlp.add_pipe(_lemmatize, name="lemmatize", after="filter")
@@ -73,8 +68,6 @@ nlp.tokenizer.add_special_case("whaddya",exc)
 def analyze_doc(doc, sentiment, adj_pos, adj_neu, adj_neg):
     ''' Collect adjectives per sentiment category '''
     for token in doc:
-        if token._.cleaned == "UNK":
-            continue
         if (token.pos_ == "ADJ" and token.tag_ == "JJ"):
             # exclude possessive adjectives
             if sentiment == 1:
@@ -123,7 +116,7 @@ meta["length"] = meta["length"].astype(np.int64)
 records = dd.read_parquet(path=srcpath)
 t0 = time.time()
 result = records.map_partitions(analyze_df, meta=meta)
-parquet = dd.to_parquet(df=result, path=tgtpath, compute=False) 
+parquet = dd.to_parquet(df=result[result["length"]>0], path=tgtpath, compute=False) 
 parquet.compute(scheduler="processes")
 t1 = time.time()
 print(t1-t0)
